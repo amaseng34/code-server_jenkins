@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'node:20'
+            image 'node:22'
             args '-u root:root'
         }
     }
@@ -13,13 +13,20 @@ pipeline {
             }
         }
         
+        stage('Initialize Submodules') {
+            steps {
+                sh '''
+                    git submodule update --init --recursive
+                '''
+            }
+        }
+        
         stage('Check Environment') {
             steps {
                 sh '''
                     node --version
                     npm --version
-                    pwd
-                    ls -la
+                    git --version
                 '''
             }
         }
@@ -48,7 +55,7 @@ pipeline {
             }
         }
         
-        stage('Archive') {
+        stage('Archive Artifacts') {
             steps {
                 archiveArtifacts artifacts: 'release/**,dist/**', allowEmptyArchive: true
             }
@@ -57,10 +64,13 @@ pipeline {
     
     post {
         success {
-            echo '✅ Білд успішний!'
+            echo '✅ Build успішний!'
         }
         failure {
-            echo '❌ Білд провалився'
+            echo '❌ Build провалився'
+        }
+        always {
+            cleanWs()
         }
     }
 }
