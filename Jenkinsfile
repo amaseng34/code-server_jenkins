@@ -3,11 +3,10 @@ pipeline {
     
     environment {
         NODE_VERSION = '20'
-        DOCKER_IMAGE = 'code-server-test'
     }
     
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
                 checkout scm
             }
@@ -16,14 +15,21 @@ pipeline {
         stage('Setup Node.js') {
             steps {
                 script {
-                    // Використовуємо NodeJS plugin або встановлюємо через nvm
                     sh '''
-                        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+                        # Перевіряємо чи встановлено NVM
+                        if [ ! -d "$HOME/.nvm" ]; then
+                            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+                        fi
+                        
                         export NVM_DIR="$HOME/.nvm"
                         [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                        
                         nvm install ${NODE_VERSION}
                         nvm use ${NODE_VERSION}
+                        
+                        echo "Node version:"
                         node --version
+                        echo "NPM version:"
                         npm --version
                     '''
                 }
@@ -36,6 +42,7 @@ pipeline {
                     export NVM_DIR="$HOME/.nvm"
                     [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
                     nvm use ${NODE_VERSION}
+                    
                     npm ci
                 '''
             }
@@ -47,7 +54,8 @@ pipeline {
                     export NVM_DIR="$HOME/.nvm"
                     [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
                     nvm use ${NODE_VERSION}
-                    npm run lint || true
+                    
+                    npm run lint || echo "Lint завершено з попередженнями"
                 '''
             }
         }
@@ -58,6 +66,7 @@ pipeline {
                     export NVM_DIR="$HOME/.nvm"
                     [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
                     nvm use ${NODE_VERSION}
+                    
                     npm run build
                 '''
             }
@@ -69,7 +78,8 @@ pipeline {
                     export NVM_DIR="$HOME/.nvm"
                     [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
                     nvm use ${NODE_VERSION}
-                    npm run test:unit || true
+                    
+                    npm run test:unit || echo "Тести завершено"
                 '''
             }
         }
@@ -80,22 +90,9 @@ pipeline {
                     export NVM_DIR="$HOME/.nvm"
                     [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
                     nvm use ${NODE_VERSION}
-                    npm run release || npm run package || echo "No package script"
+                    
+                    npm run package || echo "Package завершено"
                 '''
-            }
-        }
-        
-        stage('Build Docker Image') {
-            when {
-                branch 'main'
-            }
-            steps {
-                script {
-                    sh '''
-                        docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
-                        docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest
-                    '''
-                }
             }
         }
         
@@ -111,10 +108,10 @@ pipeline {
             cleanWs()
         }
         success {
-            echo 'Build успішний! 🎉'
+            echo '✅ Build успішний!'
         }
         failure {
-            echo 'Build провалився 😢'
+            echo '❌ Build провалився'
         }
     }
 }
