@@ -7,6 +7,22 @@ pipeline {
     }
     
     stages {
+        stage('Install System Dependencies') {
+            steps {
+                sh '''
+                    apt-get update
+                    apt-get install -y \
+                        build-essential \
+                        libx11-dev \
+                        libxkbfile-dev \
+                        libsecret-1-dev \
+                        python3 \
+                        pkg-config \
+                        git
+                '''
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 checkout scm
@@ -15,9 +31,7 @@ pipeline {
         
         stage('Initialize Submodules') {
             steps {
-                sh '''
-                    git submodule update --init --recursive
-                '''
+                sh 'git submodule update --init --recursive'
             }
         }
         
@@ -26,7 +40,8 @@ pipeline {
                 sh '''
                     node --version
                     npm --version
-                    git --version
+                    python3 --version
+                    pkg-config --version
                 '''
             }
         }
@@ -34,12 +49,6 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh 'npm ci'
-            }
-        }
-        
-        stage('Lint') {
-            steps {
-                sh 'npm run lint || true'
             }
         }
         
@@ -57,7 +66,7 @@ pipeline {
         
         stage('Archive Artifacts') {
             steps {
-                archiveArtifacts artifacts: 'release/**,dist/**', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'release/**,dist/**,out/**', allowEmptyArchive: true
             }
         }
     }
@@ -67,10 +76,11 @@ pipeline {
             echo '✅ Build успішний!'
         }
         failure {
-            echo '❌ Build провалився'
+            echo '❌ Build провалився. Перевір логи.'
         }
         always {
-            cleanWs()
+            // Не чистимо workspace для debug
+            echo 'Build completed'
         }
     }
 }
